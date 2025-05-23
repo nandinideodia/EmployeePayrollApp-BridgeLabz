@@ -2,6 +2,7 @@ package com.bridgelabz.employeepayroll.service;
 
 import com.bridgelabz.employeepayroll.dto.EmployeeRequestDTO;
 import com.bridgelabz.employeepayroll.dto.EmployeeResponseDTO;
+import com.bridgelabz.employeepayroll.exception.EmployeeNotFoundException;
 import com.bridgelabz.employeepayroll.model.Employee;
 import com.bridgelabz.employeepayroll.repository.EmployeeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,26 +12,31 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class EmployeeService implements IEmployeeService {
+public class EmployeeService {
+
+    private final EmployeeRepository employeeRepository;
 
     @Autowired
-    private EmployeeRepository employeeRepository;
+    public EmployeeService(EmployeeRepository employeeRepository) {
+        this.employeeRepository = employeeRepository;
+    }
 
-    @Override
     public EmployeeResponseDTO createEmployee(EmployeeRequestDTO employeeDTO) {
-        Employee employee = mapToEntity(employeeDTO);
+        Employee employee = new Employee();
+        employee.setName(employeeDTO.name());
+        employee.setSalary(employeeDTO.salary());
+        employee.setDepartment(employeeDTO.department());
+        
         Employee savedEmployee = employeeRepository.save(employee);
         return mapToDTO(savedEmployee);
     }
 
-    @Override
     public EmployeeResponseDTO getEmployeeById(Long id) {
         Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Employee not found"));
+                .orElseThrow(() -> new EmployeeNotFoundException(id));
         return mapToDTO(employee);
     }
 
-    @Override
     public List<EmployeeResponseDTO> getAllEmployees() {
         return employeeRepository.findAll()
                 .stream()
@@ -38,10 +44,9 @@ public class EmployeeService implements IEmployeeService {
                 .collect(Collectors.toList());
     }
 
-    @Override
     public EmployeeResponseDTO updateEmployee(Long id, EmployeeRequestDTO employeeDTO) {
         Employee existingEmployee = employeeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Employee not found"));
+                .orElseThrow(() -> new EmployeeNotFoundException(id));
         
         existingEmployee.setName(employeeDTO.name());
         existingEmployee.setSalary(employeeDTO.salary());
@@ -51,17 +56,11 @@ public class EmployeeService implements IEmployeeService {
         return mapToDTO(updatedEmployee);
     }
 
-    @Override
     public void deleteEmployee(Long id) {
+        if (!employeeRepository.existsById(id)) {
+            throw new EmployeeNotFoundException(id);
+        }
         employeeRepository.deleteById(id);
-    }
-
-    private Employee mapToEntity(EmployeeRequestDTO dto) {
-        Employee employee = new Employee();
-        employee.setName(dto.name());
-        employee.setSalary(dto.salary());
-        employee.setDepartment(dto.department());
-        return employee;
     }
 
     private EmployeeResponseDTO mapToDTO(Employee employee) {
