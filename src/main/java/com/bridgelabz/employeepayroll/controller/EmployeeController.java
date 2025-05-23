@@ -1,10 +1,14 @@
 package com.bridgelabz.employeepayroll.controller;
 
+import com.bridgelabz.employeepayroll.dto.EmployeeRequestDTO;
+import com.bridgelabz.employeepayroll.dto.EmployeeResponseDTO;
 import com.bridgelabz.employeepayroll.model.Employee;
 import com.bridgelabz.employeepayroll.repository.EmployeeRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/employees")
@@ -16,38 +20,59 @@ public class EmployeeController {
         this.repository = repository;
     }
 
-    @GetMapping
-    public List<Employee> getAll() {
-        return repository.findAll();
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public EmployeeResponseDTO createEmployee(@RequestBody EmployeeRequestDTO employeeDTO) {
+        Employee employee = new Employee();
+        employee.setName(employeeDTO.name());
+        employee.setSalary(employeeDTO.salary());
+        employee.setDepartment(employeeDTO.department());
+        
+        Employee savedEmployee = repository.save(employee);
+        return mapToDTO(savedEmployee);
     }
 
-    @PostMapping
-    public Employee addEmployee(@RequestBody Employee newEmployee) {
-        return repository.save(newEmployee);
+    @GetMapping
+    public List<EmployeeResponseDTO> getAllEmployees() {
+        return repository.findAll().stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
-    public Employee getOne(@PathVariable Long id) {
-        return repository.findById(id).orElseThrow();
+    public EmployeeResponseDTO getEmployeeById(@PathVariable Long id) {
+        Employee employee = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+        return mapToDTO(employee);
     }
 
     @PutMapping("/{id}")
-    public Employee updateEmployee(@RequestBody Employee newEmployee, @PathVariable Long id) {
-        return repository.findById(id)
-                .map(employee -> {
-                    employee.setName(newEmployee.getName());
-                    employee.setSalary(newEmployee.getSalary());
-                    employee.setDepartment(newEmployee.getDepartment());
-                    return repository.save(employee);
-                })
-                .orElseGet(() -> {
-                    newEmployee.setId(id);
-                    return repository.save(newEmployee);
-                });
+    public EmployeeResponseDTO updateEmployee(
+            @PathVariable Long id, 
+            @RequestBody EmployeeRequestDTO employeeDTO) {
+        Employee employee = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+                
+        employee.setName(employeeDTO.name());
+        employee.setSalary(employeeDTO.salary());
+        employee.setDepartment(employeeDTO.department());
+        
+        Employee updatedEmployee = repository.save(employee);
+        return mapToDTO(updatedEmployee);
     }
 
     @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteEmployee(@PathVariable Long id) {
         repository.deleteById(id);
+    }
+
+    private EmployeeResponseDTO mapToDTO(Employee employee) {
+        return new EmployeeResponseDTO(
+            employee.getId(),
+            employee.getName(),
+            employee.getSalary(),
+            employee.getDepartment()
+        );
     }
 }
